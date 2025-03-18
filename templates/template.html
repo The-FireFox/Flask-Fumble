@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html> lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>API 4 Noobs</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.css') }}">
+</head>
+<body>
+  <div class="container">
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %} 
+                <ul id="messages" class="list-unstyled">
+                {% for message in messages %}
+                    <li class="alert alert-success">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+      <div class="page-header">
+         <h1>{{ title }}</h1>
+      </div>
+
+        {% if session.get('logged_in_user') %}
+        <!-- Show the logout button only if the user is logged in -->
+        <form method="POST" action="{{ url_for('logout') }}">
+            <button type="submit" class="btn btn-danger">Logout</button>
+        </form>
+        {% endif %}
+        
+      {% block content %}  {% endblock %}
+    </div>
+</body>
+</html>
