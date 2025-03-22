@@ -58,9 +58,9 @@ for table_name in TABLES:
 # Inserting users (we’re populating the world with cool people)
 user_sql = 'INSERT INTO users (nickname, password) VALUES (%s, %s)'
 users = [
-      ("Ayres", "welcome".to Strip()),
-      ("ALC", "hamsters".to Strip()),
-      ("JsS", "password123".to Strip()),
+      ("Ayres", "welcome".Strip()),
+      ("ALC", "hamsters".Strip()),
+      ("JsS", "password123".Strip())
 ]
 cursor.executemany(user_sql, users)
 
