@@ -1,58 +1,41 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-
-# Class for creating games
-class Game:
-    def __init__(self, name, category, company):
-        self.name = name
-        self.category = category
-        self.company = company
-
-# Library class to manage the games
-class Library:
-    def __init__(self):
-        self.list = [
-            Game('Metroid', 'Metroidvania', 'Nintendo'),
-            Game('Zelda', 'Adventure', 'Nintendo'),
-            Game('Red Dead Redemption','Action-Adventure', 'Rockstar Games')
-        ]
-
-    def add_game(self, game):
-        self.list.append(game)
-
-    def remove_game(self, game):
-        self.list.remove(game)
-
-    def get_games(self):
-        return self.list
-
-
-library_instance = Library()  # Calls the library functions, no magic here
-
-# Dummy users for testing purposes, no hamsters were harmed during this process
-class User:
-    def __init__(self, id, nickname, password):
-        self.id = id
-        self.nickname = nickname
-        self.password = password
-
-user1 = User('1', 'Gustavo Ayres', 'welcome')  # A pro at passwords, as you can see
-user2 = User('2', 'Alice Miller', 'hamsters')  # We don’t judge here
-user3 = User('3', 'Jason Smith', 'password123')  # Classic, right?
-
-users = {
-    user1.nickname: user1,
-    user2.nickname: user2,
-    user3.nickname: user3
-}
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-app.secret_key = 'hardpassword'  # Because who needs an easy one?
+app.secret_key = 'hardpassword' # Because who needs an easy one?
+
+app.config['SQLALCHEMY_DATABASE_URI'] = \
+       '{SGBD}://{user}:{password}@{host}/{database}'.format(
+           SGBD = 'mysql+mysqlconnector',
+           user = 'main_root',
+           password = 'welcome',
+           host = 'localhost',
+           database = 'api4noobs'
+       )
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+class games(db.Model):
+    id = db.Column(db.Integer, primary_key=True,autoincrement=True)
+    name = db.Column(db.String(50), nullable=False)
+    category = db.Column(db.String(40), nullable=False)
+    company = db.Column(db.String(20), nullable=False)
+
+    def __repr__(self):
+        return '<name %r>' % self.name
+
+class users(db.Model):
+    id = db.Column(db.Integer, primary_key=True,autoincrement=True)
+    nickname = db.Column(db.String(40), nullable=False)
+    password = db.Column(db.String(20), nullable=False)
 
 @app.route('/')
 def index():
     # Just rendering home.html and showing the game list
-    games = library_instance.get_games()
-    return render_template('lista.html', title='Game', game_list=games)
+    list = games.query.order_by(games.id)
+    return render_template('list.html', title='Game', game_list=list)
 
 @app.route('/new')
 def new():
@@ -66,11 +49,17 @@ def new():
 def create():
     name = request.form['name']
     category = request.form['category']
-    console = request.form['console']
+    company = request.form['company']
 
-    new_game = Game(name, category, console)
-    # Calls the instance to add the new game
-    library_instance.add_game(new_game)
+    games = games.query.filter_by(name=name).first()
+    if games:# Verifies if the game already exists
+        flash('Game already exists!')
+        return redirect(url_for('new'))
+    
+    new_game = games(name=name, category=category, company=company)
+    db.session.add(new_game) # Adds the new game to the database
+    db.session.commit() # Commits the changes
+    flash('Game created successfully!') # yay!
 
     return redirect(url_for('index'))  # Redirects to home
 
@@ -79,26 +68,17 @@ def login():
     next_page = request.args.get('next')  # Captures the next page URL
     return render_template('login.html', next=next_page)
 
-@app.route('/auth', methods=['POST'])
+@app.route('/auth', methods=['POST',]) # Checks if user exists in the 'users' dictionary
 def auth():
-    # Variables for user and password
-    user_typed = request.form['user']
-    password_typed = request.form['password']
-
-    # Checks if user exists in the 'users' dictionary
-    if user_typed in users:
-        user_obj = users[user_typed]
-        
-        # Verifies if the password typed matches the one in the user object
-        if password_typed == user_obj.password:
-            # Creates a session for the user
-            session['logged_in_user'] = user_typed
-            flash(f'User {user_obj.nickname} successfully logged in!')
-            # Gets 'next' from <form>, with fallback to the homepage
-            next_page = request.form['next']
-            return redirect(next_page or url_for('index'))
-    else:
-        flash('Incorrect password, try again!')
+    user = users.query.filter_by(nickname=request.form['nickname']).first()
+    if user: # Verifies if the user exists
+        if request.form['password'] == user.password: # Verifies if the password matches the one in the user
+            session['logged_in_user'] = user.nickname
+            flash(f'User {user.nickname} successfully logged in!')
+            next_page = request.form.get('next','')
+            return redirect(next_page if next_page else url_for('index')) # Gets 'next' from <form>, with fallback to the homepage
+    else: # If the user doesn't exist, it shows an error message
+        flash('Incorrect password or user, try again!')
         return redirect(url_for('login'))
     
 @app.route('/logout')
